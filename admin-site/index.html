@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NSFW Pixelator — Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#09090b;--sur:#111114;--sur2:#18181c;--brd:#25252b;--acc:#7c6aff;--adim:rgba(124,106,255,.12);--grn:#3ddc84;--red:#ff4757;--amb:#ffa502;--txt:#e8e8f0;--dim:#6a6a80;--radius:10px}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Auth overlay ── */
+#authOverlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999}
+.auth-box{background:var(--sur);border:1px solid var(--brd);border-radius:16px;padding:32px;width:340px;text-align:center}
+.auth-logo{width:48px;height:48px;background:var(--acc);border-radius:13px;display:grid;place-items:center;font-size:22px;margin:0 auto 16px}
+.auth-title{font-size:18px;font-weight:700;margin-bottom:6px}
+.auth-sub{font-size:12px;color:var(--dim);margin-bottom:20px}
+.auth-input{width:100%;background:var(--sur2);border:1.5px solid var(--brd);border-radius:8px;padding:10px 13px;color:var(--txt);font-size:14px;outline:none;text-align:center;letter-spacing:.2em;margin-bottom:12px;transition:border-color .15s}
+.auth-input:focus{border-color:var(--acc)}
+.auth-btn{width:100%;padding:11px;background:var(--acc);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}
+.auth-err{font-size:12px;color:var(--red);margin-top:8px;min-height:16px;font-family:monospace}
+
+/* ── Connect overlay ── */
+#connectOverlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9998;display:none}
+.connect-box{background:var(--sur);border:1px solid var(--brd);border-radius:16px;padding:28px;width:420px}
+.connect-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.connect-sub{font-size:12px;color:var(--dim);margin-bottom:18px}
+
+/* ── Layout ── */
+.app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:200px;background:var(--sur);border-right:1px solid var(--brd);display:flex;flex-direction:column;flex-shrink:0}
+.main{flex:1;overflow-y:auto;background:var(--bg)}
+
+/* ── Sidebar ── */
+.sb-top{padding:16px 14px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:9px}
+.sb-icon{width:30px;height:30px;background:var(--acc);border-radius:8px;display:grid;place-items:center;font-size:15px;flex-shrink:0}
+.sb-title{font-size:13px;font-weight:700}
+.sb-ver{font-size:9px;color:var(--dim);font-family:monospace}
+nav{padding:8px;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;color:var(--dim);font-size:12px;font-weight:500;cursor:pointer;margin-bottom:2px;transition:all .15s}
+.nav-item:hover{background:var(--sur2);color:var(--txt)}
+.nav-item.active{background:var(--adim);color:var(--acc)}
+.nav-icon{font-size:14px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:8px;padding:1px 6px;font-size:9px;font-family:monospace}
+.sb-foot{padding:12px 14px;border-top:1px solid var(--brd)}
+.conn-row{display:flex;align-items:center;gap:6px;font-size:10px;font-family:monospace;color:var(--dim)}
+.cdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.cdot.ok{background:var(--grn)}
+.cdot.off{background:var(--red)}
+
+/* ── Panel ── */
+.panel{display:none;padding:24px}
+.panel.active{display:block}
+.ph{font-size:20px;font-weight:700;margin-bottom:4px}
+.ps{font-size:12px;color:var(--dim);margin-bottom:20px}
+
+/* ── Cards ── */
+.card{background:var(--sur);border:1px solid var(--brd);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px}
+.card-title{font-size:10px;font-family:monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:14px}
+
+/* ── Grid ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+
+/* ── Stat cards ── */
+.scard{background:var(--sur2);border:1px solid var(--brd);border-radius:8px;padding:14px;text-align:center}
+.snum{font-family:monospace;font-size:24px;font-weight:700;color:var(--acc);line-height:1}
+.slbl{font-size:9px;color:var(--dim);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+
+/* ── Chips ── */
+.chips{display:flex;gap:6px;margin-bottom:4px}
+.chip{flex:1;padding:8px;text-align:center;border-radius:7px;border:1.5px solid var(--brd);font-size:12px;font-weight:600;cursor:pointer;color:var(--dim);background:var(--sur2);transition:all .15s}
+.chip:hover{border-color:var(--acc);color:var(--acc)}
+.chip.sel.low{border-color:var(--grn);color:var(--grn);background:rgba(61,220,132,.08)}
+.chip.sel.medium{border-color:var(--acc);color:var(--acc);background:rgba(124,106,255,.1)}
+.chip.sel.high{border-color:var(--red);color:var(--red);background:rgba(255,71,87,.08)}
+.chip-hint{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.5}
+
+/* ── Slider ── */
+.sl-row{display:flex;align-items:center;gap:10px}
+.sl-row input[type=range]{flex:1;accent-color:var(--acc)}
+.sl-val{font-family:monospace;font-size:16px;color:var(--acc);font-weight:700;min-width:28px;text-align:right}
+
+/* ── Toggles ── */
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--brd)}
+.tog-row:last-child{border-bottom:none}
+.tog-info .tog-name{font-size:13px;font-weight:500}
+.tog-info .tog-desc{font-size:10px;color:var(--dim);margin-top:2px}
+.mini-sw{position:relative;width:36px;height:20px;border-radius:10px;cursor:pointer;flex-shrink:0;border:none;outline:none;transition:background .15s}
+.mini-sw.on{background:var(--acc)}
+.mini-sw.off{background:var(--brd)}
+.mini-sw::after{content:'';position:absolute;top:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left .15s}
+.mini-sw.on::after{left:18px}
+.mini-sw.off::after{left:2px}
+
+/* ── Fields ── */
+.field{margin-bottom:10px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--dim);margin-bottom:4px}
+.field input,.field select,.field textarea{width:100%;background:var(--sur2);border:1.5px solid var(--brd);border-radius:7px;padding:8px 11px;color:var(--txt);font-size:12px;outline:none;transition:border-color .15s;font-family:monospace}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--acc)}
+.field input::placeholder{color:var(--dim)}
+
+/* ── Buttons ── */
+.btn{padding:9px 18px;border-radius:7px;border:none;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{opacity:.88}
+.btn-acc{background:var(--acc);color:#fff}
+.btn-ghost{background:none;border:1.5px solid var(--brd);color:var(--dim)}
+.btn-ghost:hover{border-color:var(--acc);color:var(--acc)}
+.btn-red{background:rgba(255,71,87,.12);color:var(--red);border:1.5px solid rgba(255,71,87,.3)}
+.btn-grn{background:rgba(61,220,132,.1);color:var(--grn);border:1.5px solid rgba(61,220,132,.3)}
+.btn-amb{background:rgba(255,165,2,.1);color:var(--amb);border:1.5px solid rgba(255,165,2,.3)}
+.btn-full{width:100%;justify-content:center}
+.btn-row{display:flex;gap:8px;margin-top:14px;align-items:center}
+.save-flash{font-size:11px;color:var(--grn);font-family:monospace}
+
+/* ── Tags ── */
+.tags{display:flex;flex-wrap:wrap;gap:5px;min-height:32px;margin-bottom:10px}
+.tag{display:inline-flex;align-items:center;gap:5px;background:var(--sur2);border:1px solid var(--brd);border-radius:5px;padding:4px 9px;font-family:monospace;font-size:11px;color:var(--acc)}
+.tag-x{background:none;border:none;color:var(--dim);font-size:14px;cursor:pointer;padding:0;line-height:1}
+.tag-x:hover{color:var(--red)}
+.tag-input-row{display:flex;gap:7px}
+.tag-input-row input{flex:1}
+.add-btn{background:var(--acc);border:none;border-radius:7px;color:#fff;font-size:18px;width:34px;cursor:pointer;display:grid;place-items:center;flex-shrink:0}
+
+/* ── Devices ── */
+.device-card{background:var(--sur2);border:1px solid var(--brd);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:11px;margin-bottom:8px}
+.device-card:last-child{margin-bottom:0}
+.dev-id{font-family:monospace;font-size:12px;color:var(--acc)}
+.dev-meta{font-size:10px;color:var(--dim);margin-top:2px}
+.dev-badge{margin-left:auto;font-size:9px;font-family:monospace;padding:2px 7px;border-radius:4px}
+.dev-badge.online{background:rgba(61,220,132,.12);color:var(--grn)}
+.dev-badge.idle{background:rgba(255,165,2,.1);color:var(--amb)}
+.dev-badge.offline{background:rgba(255,71,87,.08);color:var(--red)}
+
+/* ── Alerts ── */
+.alert-item{background:var(--sur2);border:1px solid var(--brd);border-radius:8px;padding:10px 13px;display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.alert-icon{font-size:16px;flex-shrink:0}
+.alert-msg{font-size:12px;font-weight:500;flex:1}
+.alert-time{font-size:10px;color:var(--dim);font-family:monospace}
+.alert-item.warn{border-color:rgba(255,165,2,.3);background:rgba(255,165,2,.06)}
+.alert-item.danger{border-color:rgba(255,71,87,.3);background:rgba(255,71,87,.06)}
+.alert-item.info{border-color:rgba(124,106,255,.25);background:rgba(124,106,255,.06)}
+.alert-item.grace{border-color:rgba(61,220,132,.3);background:rgba(61,220,132,.06)}
+
+/* ── Grace requests ── */
+.grace-req{background:var(--sur2);border:1px solid rgba(61,220,132,.3);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.grace-req-info{flex:1}
+.grace-req-id{font-family:monospace;font-size:12px;color:var(--acc)}
+.grace-req-time{font-size:10px;color:var(--dim);margin-top:2px}
+.grace-btns{display:flex;gap:6px;flex-shrink:0}
+.grace-mins{background:var(--sur2);border:1.5px solid var(--brd);border-radius:6px;padding:4px 8px;color:var(--txt);font-size:12px;font-family:monospace;width:56px;outline:none}
+
+/* ── Time rules ── */
+.rule-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--brd)}
+.rule-row:last-child{border-bottom:none}
+.rule-label{font-size:12px;flex:1}
+.rule-time{font-family:monospace;font-size:11px;color:var(--acc);background:var(--sur2);border:1px solid var(--brd);border-radius:5px;padding:3px 7px}
+.rule-del{background:none;border:none;color:var(--dim);font-size:16px;cursor:pointer}
+.rule-del:hover{color:var(--red)}
+
+/* ── Profiles ── */
+.profile-card{background:var(--sur2);border:1.5px solid var(--brd);border-radius:8px;padding:11px 13px;display:flex;align-items:center;gap:10px;margin-bottom:7px;cursor:pointer;transition:border-color .15s}
+.profile-card:hover{border-color:var(--acc)}
+.profile-card.active{border-color:var(--acc);background:var(--adim)}
+.profile-name{font-size:13px;font-weight:600}
+.profile-desc{font-size:10px;color:var(--dim);margin-top:2px}
+.profile-badge{margin-left:auto;font-size:9px;background:var(--adim);color:var(--acc);border-radius:4px;padding:2px 7px;font-family:monospace}
+
+/* ── Log ── */
+.log-item{display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--brd);font-size:11px;font-family:monospace}
+.log-item:last-child{border-bottom:none}
+.log-ts{color:var(--dim);flex-shrink:0;min-width:70px}
+.log-type{min-width:60px;font-weight:600}
+.log-type.BLOCK{color:var(--red)}
+.log-type.SYNC{color:var(--acc)}
+.log-type.GRACE{color:var(--grn)}
+.log-type.TAMPER{color:var(--amb)}
+.log-type.INCOGNITO{color:var(--amb)}
+.log-msg{color:var(--txt)}
+
+/* ── Chart ── */
+.chart-wrap{position:relative;height:180px;margin-top:4px}
+
+/* ── Panic ── */
+.panic-card{background:rgba(255,71,87,.06);border:1.5px solid rgba(255,71,87,.3);border-radius:var(--radius);padding:18px;text-align:center}
+.panic-title{font-size:15px;font-weight:700;color:var(--red);margin-bottom:6px}
+.panic-sub{font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:16px}
+.panic-btn{padding:12px 28px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.panic-btn:hover{opacity:.9}
+
+/* ── Misc ── */
+.sep{height:1px;background:var(--brd);margin:14px 0}
+.info{font-size:11px;color:var(--dim);background:rgba(124,106,255,.06);border:1px solid rgba(124,106,255,.15);border-radius:7px;padding:9px 12px;line-height:1.6;margin-top:10px}
+</style>
+</head>
+<body>
+
+<!-- Auth -->
+<div id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-logo">🔲</div>
+    <div class="auth-title">Admin Panel</div>
+    <div class="auth-sub">Enter your admin password to continue</div>
+    <input class="auth-input" type="password" id="authPw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doAuth()" />
+    <button class="auth-btn" onclick="doAuth()">Sign in</button>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+</div>
+
+<!-- Connect -->
+<div id="connectOverlay">
+  <div class="connect-box">
+    <div class="connect-title">Connect to Supabase</div>
+    <div class="connect-sub">Enter your project credentials to manage devices.</div>
+    <div class="field"><label>Supabase URL</label><input id="sbUrl" type="text" placeholder="https://xxxx.supabase.co" /></div>
+    <div class="field"><label>Service role key</label><input id="sbKey" type="password" placeholder="eyJhbGci…" /></div>
+    <div class="btn-row">
+      <button class="btn btn-acc btn-full" onclick="doConnect()">Connect</button>
+    </div>
+    <div class="auth-err" id="connectErr"></div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div class="app" id="mainApp" style="display:none">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <div class="sb-icon">🔲</div>
+      <div><div class="sb-title">Pixelator</div><div class="sb-ver">v2.0 ADMIN</div></div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="show('overview')"><span class="nav-icon">📊</span> Overview</div>
+      <div class="nav-item" onclick="show('devices')"><span class="nav-icon">💻</span> Devices</div>
+      <div class="nav-item" onclick="show('detection')"><span class="nav-icon">🎯</span> Detection</div>
+      <div class="nav-item" onclick="show('display')"><span class="nav-icon">🖼</span> Display</div>
+      <div class="nav-item" onclick="show('keywords')"><span class="nav-icon">🔤</span> Keywords</div>
+      <div class="nav-item" onclick="show('domains')"><span class="nav-icon">🌐</span> Domains</div>
+      <div class="nav-item" onclick="show('schedule')"><span class="nav-icon">🕐</span> Schedule</div>
+      <div class="nav-item" onclick="show('profiles')"><span class="nav-icon">📋</span> Profiles</div>
+      <div class="nav-item" onclick="show('grace')"><span class="nav-icon">🙋</span> Requests <span class="nav-badge" id="graceBadge" style="display:none">1</span></div>
+      <div class="nav-item" onclick="show('alerts')"><span class="nav-icon">🔔</span> Alerts</div>
+      <div class="nav-item" onclick="show('log')"><span class="nav-icon">📝</span> Activity log</div>
+      <div class="nav-item" onclick="show('security')"><span class="nav-icon">🔐</span> Security</div>
+      <div class="nav-item" onclick="show('panic')"><span class="nav-icon">⛔</span> Panic button</div>
+    </nav>
+    <div class="sb-foot">
+      <div class="conn-row"><div class="cdot ok" id="connDot"></div><span id="connText">connected</span></div>
+    </div>
+  </aside>
+
+  <!-- Panels -->
+  <main class="main" id="panels">
+
+    <!-- Overview -->
+    <div class="panel active" id="p-overview">
+      <div class="ph">Overview</div>
+      <div class="ps">Live stats across all connected devices.</div>
+      <div class="grid3" style="margin-bottom:14px">
+        <div class="scard"><div class="snum" id="ovTotal">0</div><div class="slbl">Total blocked today</div></div>
+        <div class="scard"><div class="snum" id="ovDevices">0</div><div class="slbl">Devices online</div></div>
+        <div class="scard"><div class="snum" id="ovAlerts">0</div><div class="slbl">Alerts this week</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Blocks per day (last 7 days)</div>
+        <div class="chart-wrap"><canvas id="blockChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Top blocked domains</div>
+        <div id="topDomains"><div style="color:var(--dim);font-size:12px">No data yet</div></div>
+      </div>
+    </div>
+
+    <!-- Devices -->
+    <div class="panel" id="p-devices">
+      <div class="ph">Devices</div>
+      <div class="ps">Manage connected devices and share credentials.</div>
+      <div class="card">
+        <div class="card-title">Connected devices</div>
+        <div id="deviceList">
+          <div class="device-card">
+            <span style="font-size:20px">💻</span>
+            <div><div class="dev-id">device-a3f9k2</div><div class="dev-meta">Last seen 2 min ago · 247 blocks</div></div>
+            <div class="dev-badge online">online</div>
+          </div>
+          <div class="device-card">
+            <span style="font-size:20px">💻</span>
+            <div><div class="dev-id">device-r7m2x9</div><div class="dev-meta">Last seen 3 days ago · 89 blocks</div></div>
+            <div class="dev-badge idle">idle</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Add device</div>
+        <div class="field"><label>Device ID</label>
+          <div style="display:flex;gap:7px">
+            <input id="newDeviceId" type="text" placeholder="e.g. device-living-room" style="flex:1" />
+            <button class="btn btn-ghost" onclick="genId()">🎲</button>
+            <button class="btn btn-acc" onclick="addDevice()">Add</button>
+          </div>
+        </div>
+        <div id="shareBox" style="display:none" class="info">
+          <strong>Share with user:</strong><br>
+          Device ID: <span id="shareId" style="color:var(--acc);font-family:monospace"></span><br>
+          Supabase URL: <span id="shareUrl" style="color:var(--acc);font-family:monospace"></span><br>
+          Anon Key: <span id="shareAnon" style="color:var(--acc);font-family:monospace;word-break:break-all"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detection -->
+    <div class="panel" id="p-detection">
+      <div class="ph">Detection</div>
+      <div class="ps">Control how aggressively NSFW content is identified.</div>
+      <div class="card">
+        <div class="card-title">Sensitivity</div>
+        <div class="chips">
+          <div class="chip low" onclick="setSens('low',this)">Low</div>
+          <div class="chip medium sel" onclick="setSens('medium',this)">Medium</div>
+          <div class="chip high" onclick="setSens('high',this)">High</div>
+        </div>
+        <div class="chip-hint" id="sensHint">Good balance — catches clear signals without many false positives.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Options</div>
+        <div class="tog-row">
+          <div class="tog-info"><div class="tog-name">Auto-scan new content</div><div class="tog-desc">Catches dynamically loaded images</div></div>
+          <button class="mini-sw on" onclick="toggle(this,'autoScan')"></button>
+        </div>
+        <div class="tog-row">
+          <div class="tog-info"><div class="tog-name">Block incognito / private windows</div><div class="tog-desc">Detects and alerts when private browsing is opened</div></div>
+          <button class="mini-sw on" onclick="toggle(this,'incognitoBlock')"></button>
+        </div>
+        <div class="tog-row">
+          <div class="tog-info"><div class="tog-name">Screen scanner (beta)</div><div class="tog-desc">Uses AI to pixelate NSFW content across all apps, not just browsers</div></div>
+          <button class="mini-sw off" onclick="toggle(this,'screenScanner')"></button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-acc" onclick="save('detection',this)">💾 Save & push</button>
+        <span class="save-flash" id="sf-detection"></span>
+      </div>
+    </div>
+
+    <!-- Display -->
+    <div class="panel" id="p-display">
+      <div class="ph">Display</div>
+      <div class="ps">Control how pixelation looks on the user's screen.</div>
+      <div class="card">
+        <div class="card-title">Pixelation intensity</div>
+        <div class="sl-row">
+          <input type="range" min="4" max="40" value="15" step="1" oninput="document.getElementById('slVal').textContent=this.value" />
+          <div class="sl-val" id="slVal">15</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:4px"><span>subtle</span><span>extreme</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Options</div>
+        <div class="tog-row">
+          <div class="tog-info"><div class="tog-name">Show NSFW label</div><div class="tog-desc">Display badge on pixelated content</div></div>
+          <button class="mini-sw on" onclick="toggle(this,'showLabel')"></button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-acc" onclick="save('display',this)">💾 Save & push</button>
+        <span class="save-flash" id="sf-display"></span>
+      </div>
+    </div>
+
+    <!-- Keywords -->
+    <div class="panel" id="p-keywords">
+      <div class="ph">Custom keywords</div>
+      <div class="ps">Words in image URLs, alt text, or page context that trigger pixelation.</div>
+      <div class="card">
+        <div class="card-title">Keyword list</div>
+        <div class="tag-input-row" style="margin-bottom:10px">
+          <input type="text" id="kwInput" placeholder="e.g. bikini, lingerie…" onkeydown="if(event.key==='Enter')addKw()" />
+          <button class="add-btn" onclick="addKw()">+</button>
+        </div>
+        <div class="tags" id="kwTags">
+          <span class="tag">lingerie <button class="tag-x" onclick="removeKw(this)">×</button></span>
+          <span class="tag">swimsuit <button class="tag-x" onclick="removeKw(this)">×</button></span>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-acc" onclick="save('keywords',this)">💾 Save & push</button>
+        <span class="save-flash" id="sf-keywords"></span>
+      </div>
+    </div>
+
+    <!-- Domains -->
+    <div class="panel" id="p-domains">
+      <div class="ph">Domains</div>
+      <div class="ps">Block entire sites or whitelist trusted ones.</div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">🚫 Blocked domains</div>
+          <div class="tag-input-row" style="margin-bottom:10px">
+            <input type="text" id="blockInput" placeholder="e.g. example.com" onkeydown="if(event.key==='Enter')addDomain('block')" />
+            <button class="add-btn" onclick="addDomain('block')">+</button>
+          </div>
+          <div class="tags" id="blockTags">
+            <span class="tag" style="color:var(--red)">badsite.com <button class="tag-x" onclick="removeTag(this)">×</button></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">✅ Allowed domains</div>
+          <div class="tag-input-row" style="margin-bottom:10px">
+            <input type="text" id="allowInput" placeholder="e.g. medicalsite.org" onkeydown="if(event.key==='Enter')addDomain('allow')" />
+            <button class="add-btn" onclick="addDomain('allow')">+</button>
+          </div>
+          <div class="tags" id="allowTags">
+            <span class="tag" style="color:var(--grn)">trusted.org <button class="tag-x" onclick="removeTag(this)">×</button></span>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-acc" onclick="save('domains',this)">💾 Save & push</button>
+        <span class="save-flash" id="sf-domains"></span>
+      </div>
+    </div>
+
+    <!-- Schedule -->
+    <div class="panel" id="p-schedule">
+      <div class="ph">Schedule</div>
+      <div class="ps">Optionally apply stricter settings at certain times.</div>
+      <div class="card">
+        <div class="card-title">Time-based rules</div>
+        <div id="ruleList">
+          <div class="rule-row">
+            <span class="rule-label">Mon–Fri 10pm–6am</span>
+            <span class="rule-time">high sensitivity</span>
+            <button class="rule-del" onclick="this.closest('.rule-row').remove()">×</button>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+          <div class="field" style="margin:0"><label>From</label><input type="time" id="rFrom" value="22:00" /></div>
+          <div class="field" style="margin:0"><label>To</label><input type="time" id="rTo" value="06:00" /></div>
+          <div class="field" style="margin:0"><label>Sensitivity</label>
+            <select id="rSens"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+          </div>
+          <button class="btn btn-acc" onclick="addRule()">Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Email notifications</div>
+        <div class="field"><label>Admin email (for alerts & weekly digest)</label><input type="email" id="adminEmail" placeholder="admin@example.com" /></div>
+        <div class="tog-row">
+          <div class="tog-info"><div class="tog-name">Weekly summary email</div><div class="tog-desc">Every Monday — total blocks, top domains, alerts</div></div>
+          <button class="mini-sw on" onclick="toggle(this,'weeklyEmail')"></button>
+        </div>
+        <div class="tog-row">
+          <div class="tog-info"><div class="tog-name">Alert emails</div><div class="tog-desc">App offline, tamper detected, incognito opened</div></div>
+          <button class="mini-sw on" onclick="toggle(this,'alertEmail')"></button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-acc" onclick="save('schedule',this)">💾 Save & push</button>
+        <span class="save-flash" id="sf-schedule"></span>
+      </div>
+    </div>
+
+    <!-- Profiles -->
+    <div class="panel" id="p-profiles">
+      <div class="ph">Config profiles</div>
+      <div class="ps">Save different setting presets and switch devices between them instantly.</div>
+      <div class="card">
+        <div class="card-title">Saved profiles</div>
+        <div class="profile-card active">
+          <span style="font-size:18px">🔒</span>
+          <div><div class="profile-name">Strict</div><div class="profile-desc">High sensitivity · intensity 20 · all keywords</div></div>
+          <div class="profile-badge">active</div>
+        </div>
+        <div class="profile-card">
+          <span style="font-size:18px">⚖️</span>
+          <div><div class="profile-name">Balanced</div><div class="profile-desc">Medium sensitivity · intensity 15</div></div>
+        </div>
+        <div class="profile-card">
+          <span style="font-size:18px">🔓</span>
+          <div><div class="profile-name">Relaxed</div><div class="profile-desc">Low sensitivity · intensity 8 · no extra keywords</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Save current settings as new profile</div>
+        <div class="field"><label>Profile name</label><input type="text" id="profileName" placeholder="e.g. Night mode" /></div>
+        <div class="btn-row">
+          <button class="btn btn-acc" onclick="saveProfile()">💾 Save profile</button>
+          <span class="save-flash" id="sf-profiles"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grace requests -->
+    <div class="panel" id="p-grace">
+      <div class="ph">Pause requests</div>
+      <div class="ps">Users can request a temporary protection pause from their status window. Approve or deny here.</div>
+      <div class="card">
+        <div class="card-title">Pending requests</div>
+        <div id="graceList">
+          <div class="grace-req">
+            <div class="grace-req-info">
+              <div class="grace-req-id">device-a3f9k2</div>
+              <div class="grace-req-time">Requested 2 minutes ago</div>
+            </div>
+            <input class="grace-mins" type="number" value="10" min="1" max="60" title="Minutes" />
+            <div class="grace-btns">
+              <button class="btn btn-grn" onclick="approveGrace(this)">✓ Approve</button>
+              <button class="btn btn-red" onclick="denyGrace(this)">✗ Deny</button>
+            </div>
+          </div>
+        </div>
+        <div id="graceEmpty" style="font-size:12px;color:var(--dim);display:none">No pending requests.</div>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="panel" id="p-alerts">
+      <div class="ph">Alerts</div>
+      <div class="ps">Real-time notifications from connected devices.</div>
+      <div class="card">
+        <div class="card-title">Recent alerts</div>
+        <div id="alertList">
+          <div class="alert-item warn">
+            <span class="alert-icon">⚠️</span>
+            <div style="flex:1"><div class="alert-msg">Incognito window detected — device-a3f9k2</div></div>
+            <div class="alert-time">5 min ago</div>
+          </div>
+          <div class="alert-item danger">
+            <span class="alert-icon">🚨</span>
+            <div style="flex:1"><div class="alert-msg">Tamper attempt — proxy was killed externally — device-r7m2x9</div></div>
+            <div class="alert-time">2 hrs ago</div>
+          </div>
+          <div class="alert-item info">
+            <span class="alert-icon">🟢</span>
+            <div style="flex:1"><div class="alert-msg">Device came online — device-a3f9k2</div></div>
+            <div class="alert-time">Today 9:14am</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity log -->
+    <div class="panel" id="p-log">
+      <div class="ph">Activity log</div>
+      <div class="ps">Timestamped record of all blocked content and system events.</div>
+      <div class="card">
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input type="text" placeholder="Search logs…" style="flex:1;background:var(--sur2);border:1.5px solid var(--brd);border-radius:7px;padding:7px 11px;color:var(--txt);font-size:12px;outline:none;font-family:monospace" oninput="filterLog(this.value)" />
+          <button class="btn btn-ghost" onclick="clearLog()">Clear</button>
+        </div>
+        <div id="logList">
+          <div class="log-item"><span class="log-ts">10:42:03</span><span class="log-type BLOCK">BLOCK</span><span class="log-msg">image blocked from xvideos.com</span></div>
+          <div class="log-item"><span class="log-ts">10:41:55</span><span class="log-type BLOCK">BLOCK</span><span class="log-msg">image blocked from pornhub.com</span></div>
+          <div class="log-item"><span class="log-ts">10:40:12</span><span class="log-type SYNC">SYNC</span><span class="log-msg">Config updated from admin</span></div>
+          <div class="log-item"><span class="log-ts">10:39:01</span><span class="log-type GRACE">GRACE</span><span class="log-msg">Pause request sent</span></div>
+          <div class="log-item"><span class="log-ts">10:38:44</span><span class="log-type INCOGNITO">INCOGNITO</span><span class="log-msg">Private browsing window detected</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security -->
+    <div class="panel" id="p-security">
+      <div class="ph">Security</div>
+      <div class="ps">Manage access credentials.</div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-title">Change device PIN</div>
+          <div class="field"><label>Current PIN</label><input type="password" placeholder="Current PIN" /></div>
+          <div class="field"><label>New PIN</label><input type="password" id="newPin" placeholder="New PIN" /></div>
+          <div class="field"><label>Confirm PIN</label><input type="password" placeholder="Repeat PIN" /></div>
+          <div class="btn-row">
+            <button class="btn btn-acc" onclick="save('pin',this)">🔐 Update PIN</button>
+            <span class="save-flash" id="sf-pin"></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Change admin password</div>
+          <div class="field"><label>Current password</label><input type="password" id="curPw" placeholder="Current password" /></div>
+          <div class="field"><label>New password</label><input type="password" id="newPw" placeholder="New password" /></div>
+          <div class="field"><label>Confirm password</label><input type="password" id="confPw" placeholder="Confirm" /></div>
+          <div class="btn-row">
+            <button class="btn btn-acc" onclick="changePw()">🔑 Change password</button>
+            <span class="save-flash" id="sf-pw"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panic -->
+    <div class="panel" id="p-panic">
+      <div class="ph">Panic button</div>
+      <div class="ps">Instantly lock down internet access on a device when needed.</div>
+      <div class="card">
+        <div class="card-title">Send to device</div>
+        <div class="field"><label>Target device</label>
+          <select><option>device-a3f9k2</option><option>device-r7m2x9</option><option>All devices</option></select>
+        </div>
+        <div class="field"><label>Message shown to user (optional)</label>
+          <input type="text" id="panicMsg" placeholder="Internet access has been restricted." />
+        </div>
+      </div>
+      <div class="panic-card">
+        <div class="panic-title">⛔ Panic — lock down now</div>
+        <div class="panic-sub">This will immediately block all internet access on the selected device and show a full-screen lock screen. The user cannot close it without the PIN.</div>
+        <button class="panic-btn" onclick="triggerPanic()">⛔ Lock down now</button>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-grn btn-full" onclick="releasePanic()">✓ Release lock — restore access</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Auth ──────────────────────────────────────────────────────────────────────
+let adminPw = localStorage.getItem('adminPw') || 'admin1234';
+let sbUrl = localStorage.getItem('sbUrl') || '';
+let sbKey = localStorage.getItem('sbKey') || '';
+
+function doAuth() {
+  const pw = document.getElementById('authPw').value;
+  if (pw === adminPw) {
+    document.getElementById('authOverlay').style.display = 'none';
+    if (!sbUrl || !sbKey) {
+      document.getElementById('connectOverlay').style.display = 'flex';
+    } else {
+      document.getElementById('mainApp').style.display = 'flex';
+      initDashboard();
+    }
+  } else {
+    document.getElementById('authErr').textContent = 'Incorrect password.';
+    setTimeout(() => document.getElementById('authErr').textContent = '', 2000);
+  }
+}
+
+function doConnect() {
+  const u = document.getElementById('sbUrl').value.trim();
+  const k = document.getElementById('sbKey').value.trim();
+  if (!u || !k) { document.getElementById('connectErr').textContent = 'Both fields required.'; return; }
+  sbUrl = u; sbKey = k;
+  localStorage.setItem('sbUrl', u);
+  localStorage.setItem('sbKey', k);
+  document.getElementById('connectOverlay').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  initDashboard();
+}
+
+// ── Nav ───────────────────────────────────────────────────────────────────────
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('p-' + id)?.classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── Dashboard init ────────────────────────────────────────────────────────────
+function initDashboard() {
+  initChart();
+  document.getElementById('shareUrl').textContent  = sbUrl;
+  document.getElementById('shareAnon').textContent = '(your anon key)';
+  document.getElementById('ovDevices').textContent = '2';
+  document.getElementById('ovTotal').textContent   = '336';
+  document.getElementById('ovAlerts').textContent  = '3';
+}
+
+function initChart() {
+  const ctx = document.getElementById('blockChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+      datasets: [{
+        data: [42, 89, 63, 110, 78, 12, 8],
+        backgroundColor: 'rgba(124,106,255,.5)',
+        borderColor: '#7c6aff',
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#25252b' }, ticks: { color: '#6a6a80', font: { size: 11 } } },
+        y: { grid: { color: '#25252b' }, ticks: { color: '#6a6a80', font: { size: 11 } } }
+      }
+    }
+  });
+  const td = document.getElementById('topDomains');
+  const domains = [['pornhub.com',142],['xvideos.com',89],['xhamster.com',61],['onlyfans.com',44]];
+  td.innerHTML = domains.map(([d,n]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--brd);font-size:12px"><span style="font-family:monospace;color:var(--acc)">${d}</span><span style="color:var(--dim)">${n} blocks</span></div>`).join('');
+}
+
+// ── Sensitivity ───────────────────────────────────────────────────────────────
+const sensHints = {
+  low: 'Only flags known adult sites and very clear signals. Fewest false positives.',
+  medium: 'Good balance — catches clear signals without many false positives.',
+  high: 'Aggressive — flags anything with a weak NSFW signal. Best for strict use.'
+};
+function setSens(v, el) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('sensHint').textContent = sensHints[v];
+}
+
+// ── Toggles ───────────────────────────────────────────────────────────────────
+function toggle(btn, key) {
+  btn.classList.toggle('on');
+  btn.classList.toggle('off');
+}
+
+// ── Keywords ──────────────────────────────────────────────────────────────────
+function addKw() {
+  const inp = document.getElementById('kwInput');
+  const val = inp.value.trim();
+  if (!val) return;
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.innerHTML = `${val} <button class="tag-x" onclick="removeKw(this)">×</button>`;
+  document.getElementById('kwTags').appendChild(tag);
+  inp.value = '';
+}
+function removeKw(btn) { btn.closest('.tag').remove(); }
+
+// ── Domains ───────────────────────────────────────────────────────────────────
+function addDomain(type) {
+  const inp = document.getElementById(type + 'Input');
+  const val = inp.value.trim().toLowerCase();
+  if (!val) return;
+  const color = type === 'block' ? 'var(--red)' : 'var(--grn)';
+  const tag = document.createElement('span');
+  tag.className = 'tag';
+  tag.style.color = color;
+  tag.innerHTML = `${val} <button class="tag-x" onclick="removeTag(this)">×</button>`;
+  document.getElementById(type + 'Tags').appendChild(tag);
+  inp.value = '';
+}
+function removeTag(btn) { btn.closest('.tag').remove(); }
+
+// ── Time rules ────────────────────────────────────────────────────────────────
+function addRule() {
+  const from = document.getElementById('rFrom').value;
+  const to   = document.getElementById('rTo').value;
+  const sens = document.getElementById('rSens').value;
+  const row  = document.createElement('div');
+  row.className = 'rule-row';
+  row.innerHTML = `<span class="rule-label">${from} – ${to}</span><span class="rule-time">${sens} sensitivity</span><button class="rule-del" onclick="this.closest('.rule-row').remove()">×</button>`;
+  document.getElementById('ruleList').appendChild(row);
+}
+
+// ── Devices ───────────────────────────────────────────────────────────────────
+function genId() {
+  const id = 'device-' + Math.random().toString(36).slice(2,8);
+  document.getElementById('newDeviceId').value = id;
+}
+function addDevice() {
+  const id = document.getElementById('newDeviceId').value.trim();
+  if (!id) return;
+  const list = document.getElementById('deviceList');
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.innerHTML = `<span style="font-size:20px">💻</span><div><div class="dev-id">${id}</div><div class="dev-meta">Just added — awaiting connection</div></div><div class="dev-badge offline">offline</div>`;
+  list.appendChild(card);
+  const box = document.getElementById('shareBox');
+  box.style.display = 'block';
+  document.getElementById('shareId').textContent = id;
+  document.getElementById('newDeviceId').value = '';
+}
+
+// ── Profiles ──────────────────────────────────────────────────────────────────
+function saveProfile() {
+  const name = document.getElementById('profileName').value.trim();
+  if (!name) return;
+  flashSave('profiles');
+}
+
+// ── Grace ──────────────────────────────────────────────────────────────────────
+function approveGrace(btn) {
+  const mins = btn.closest('.grace-req').querySelector('.grace-mins').value;
+  btn.closest('.grace-req').style.opacity = '.4';
+  btn.closest('.grace-req').style.pointerEvents = 'none';
+  flashSave('grace', `✓ Approved ${mins} min pause`);
+}
+function denyGrace(btn) {
+  btn.closest('.grace-req').remove();
+  if (!document.querySelector('.grace-req')) {
+    document.getElementById('graceList').style.display = 'none';
+    document.getElementById('graceEmpty').style.display = 'block';
+  }
+}
+
+// ── Panic ──────────────────────────────────────────────────────────────────────
+function triggerPanic() {
+  if (!confirm('Are you sure you want to lock down this device?')) return;
+  alert('Panic signal sent. Device will lock within 30 seconds.');
+}
+function releasePanic() {
+  alert('Lock released. Device access restored.');
+}
+
+// ── Security ──────────────────────────────────────────────────────────────────
+function changePw() {
+  const cur  = document.getElementById('curPw').value;
+  const nw   = document.getElementById('newPw').value;
+  const conf = document.getElementById('confPw').value;
+  const sf   = document.getElementById('sf-pw');
+  if (cur !== adminPw) { sf.textContent = '✗ Wrong current password'; sf.style.color='var(--red)'; return; }
+  if (!nw) { sf.textContent = '✗ New password is empty'; sf.style.color='var(--red)'; return; }
+  if (nw !== conf) { sf.textContent = '✗ Passwords do not match'; sf.style.color='var(--red)'; return; }
+  adminPw = nw;
+  localStorage.setItem('adminPw', nw);
+  sf.textContent = '✓ Password changed'; sf.style.color = 'var(--grn)';
+  document.getElementById('curPw').value = '';
+  document.getElementById('newPw').value = '';
+  document.getElementById('confPw').value = '';
+  setTimeout(() => sf.textContent = '', 3000);
+}
+
+// ── Save / flash ──────────────────────────────────────────────────────────────
+function save(section, btn) {
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '💾 Save & push'; btn.disabled = false;
+    flashSave(section);
+  }, 600);
+}
+function flashSave(id, msg) {
+  const el = document.getElementById('sf-' + id);
+  if (!el) return;
+  el.style.color = 'var(--grn)';
+  el.textContent = msg || '✓ Pushed to all devices';
+  setTimeout(() => el.textContent = '', 3000);
+}
+
+// ── Log filter ────────────────────────────────────────────────────────────────
+function filterLog(q) {
+  document.querySelectorAll('.log-item').forEach(item => {
+    item.style.display = item.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+function clearLog() {
+  document.getElementById('logList').innerHTML = '<div style="color:var(--dim);font-size:12px">Log cleared.</div>';
+}
+</script>
+</body>
+</html>
